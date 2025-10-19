@@ -5,6 +5,8 @@ import random
 import requests
 import os
 from dotenv import load_dotenv
+from flask import Flask
+from datetime import datetime, timezone
 load_dotenv()
 
 # ------------------- API KEYS -------------------
