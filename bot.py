@@ -1,54 +1,60 @@
-# bot.py
 import os
-import random
+import time
 import tweepy
+import random
 import requests
-from datetime import datetime
 
-# Load environment variables
-API_KEY = os.getenv("API_KEY")
-API_SECRET_KEY = os.getenv("API_SECRET_KEY")
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
+# --- Twitter API keys (from .env) ---
 BEARER_TOKEN = os.getenv("BEARER_TOKEN")
+API_KEY = os.getenv("API_KEY")
+API_SECRET = os.getenv("API_SECRET")
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+ACCESS_SECRET = os.getenv("ACCESS_SECRET")
 
-# Authenticate Twitter
+# --- Tweepy client setup ---
 client = tweepy.Client(
     bearer_token=BEARER_TOKEN,
     consumer_key=API_KEY,
-    consumer_secret=API_SECRET_KEY,
+    consumer_secret=API_SECRET,
     access_token=ACCESS_TOKEN,
-    access_token_secret=ACCESS_TOKEN_SECRET
+    access_token_secret=ACCESS_SECRET
 )
 
-# 🔥 Function to generate AI-based tweet
-def generate_ai_tweet():
-    crypto_topics = [
-        "Bitcoin", "Ethereum", "Crypto market", "Web3", "DeFi", "NFTs", "Blockchain"
-    ]
-    topic = random.choice(crypto_topics)
-    # Use a public AI text generator API (free endpoint)
-    prompt = f"Write a short, engaging, motivational tweet about {topic} with emojis and hashtags related to crypto."
+# --- Function to get fresh crypto news ---
+def get_crypto_news():
     try:
-        response = requests.get(
-            f"https://api.monkedev.com/fun/chat?msg={prompt}"
-        )
+        url = "https://min-api.cryptocompare.com/data/v2/news/?lang=EN"
+        response = requests.get(url)
         data = response.json()
-        ai_tweet = data.get("response", "Crypto never sleeps 🚀 #Bitcoin #Crypto")
-    except:
-        ai_tweet = "Crypto never sleeps 🚀 #Bitcoin #Crypto"
-    return ai_tweet
 
-# 🐦 Function to post tweet
-def post_tweet():
-    tweet_text = generate_ai_tweet()
-    try:
-        client.create_tweet(text=tweet_text)
-        print(f"✅ Tweet posted: {tweet_text}")
+        articles = data["Data"]
+        random_article = random.choice(articles)
+        title = random_article["title"]
+        source = random_article["source"]
+        link = random_article["url"]
+
+        tweet = f"📰 {title}\nSource: {source}\n#CryptoNews {link}"
+        return tweet[:280]  # limit to 280 characters
     except Exception as e:
-        print(f"❌ Error posting tweet: {e}")
+        print("❌ Error fetching news:", e)
+        return None
 
-# Run the bot
-if __name__ == "__main__":
+# --- Post Tweet Function ---
+def post_tweet():
+    try:
+        msg = get_crypto_news()
+        if msg:
+            client.create_tweet(text=msg)
+            print(f"✅ Tweet posted:\n{msg}")
+        else:
+            print("⚠️ No tweet generated.")
+    except tweepy.errors.TooManyRequests:
+        print("⚠️ Rate limit reached — waiting 1 hour...")
+        time.sleep(3600)
+    except Exception as e:
+        print("❌ Error posting tweet:", e)
+
+# --- Auto loop: post every 6 hours ---
+while True:
     post_tweet()
-    
+    time.sleep(6 * 60 * 60)  # 6 hours delay
