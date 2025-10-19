@@ -1,19 +1,18 @@
 # bot.py
-import tweepy
 import os
-import time
-from dotenv import load_dotenv
+import random
+import tweepy
+import requests
+from datetime import datetime
 
-# Load .env variables
-load_dotenv()
-
+# Load environment variables
 API_KEY = os.getenv("API_KEY")
 API_SECRET_KEY = os.getenv("API_SECRET_KEY")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
 BEARER_TOKEN = os.getenv("BEARER_TOKEN")
 
-# Initialize Tweepy client
+# Authenticate Twitter
 client = tweepy.Client(
     bearer_token=BEARER_TOKEN,
     consumer_key=API_KEY,
@@ -22,23 +21,34 @@ client = tweepy.Client(
     access_token_secret=ACCESS_TOKEN_SECRET
 )
 
-# Function to post a tweet
-def post_tweet():
-    msg = "Hello World! This is my automated tweet."  # <-- Change your tweet content here
+# 🔥 Function to generate AI-based tweet
+def generate_ai_tweet():
+    crypto_topics = [
+        "Bitcoin", "Ethereum", "Crypto market", "Web3", "DeFi", "NFTs", "Blockchain"
+    ]
+    topic = random.choice(crypto_topics)
+    # Use a public AI text generator API (free endpoint)
+    prompt = f"Write a short, engaging, motivational tweet about {topic} with emojis and hashtags related to crypto."
     try:
-        client.create_tweet(text=msg)
-        print("Tweet sent successfully!")
-    except tweepy.errors.TooManyRequests:
-        print("Rate limit reached. Waiting 1 hour before retry...")
-        time.sleep(60*60)  # Wait 1 hour on rate limit
-    except tweepy.errors.Forbidden as e:
-        print(f"Permission error: {e}")
+        response = requests.get(
+            f"https://api.monkedev.com/fun/chat?msg={prompt}"
+        )
+        data = response.json()
+        ai_tweet = data.get("response", "Crypto never sleeps 🚀 #Bitcoin #Crypto")
+    except:
+        ai_tweet = "Crypto never sleeps 🚀 #Bitcoin #Crypto"
+    return ai_tweet
+
+# 🐦 Function to post tweet
+def post_tweet():
+    tweet_text = generate_ai_tweet()
+    try:
+        client.create_tweet(text=tweet_text)
+        print(f"✅ Tweet posted: {tweet_text}")
     except Exception as e:
-        print(f"Error posting tweet: {e}")
+        print(f"❌ Error posting tweet: {e}")
 
-# Main loop to run the bot automatically
-print("Bot started. Posting every 6 hours...")
-
-while True:
+# Run the bot
+if __name__ == "__main__":
     post_tweet()
-    time.sleep(6*60*60)  # 6 hours delay; change to 24*60*60 for daily tweets
+    
