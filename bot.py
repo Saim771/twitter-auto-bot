@@ -57,3 +57,21 @@ def post_tweet():
 if __name__ == "__main__":
     print("Bot started:", datetime.now(timezone.utc).isoformat(), "UTC")
     post_tweet()
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🤖 Twitter Auto Bot is running!"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+if __name__ == "__main__":
+    # Start Flask server in a separate thread
+    threading.Thread(target=run_flask).start()
+    print("Bot started and Flask server running...")
+    # Call your tweet posting function
+    post_tweet()
