@@ -6,56 +6,53 @@ import tweepy
 from datetime import datetime, timezone
 import time
 
-# 🔑 Load environment variables
+# Load environment variables
 API_KEY = os.getenv("API_KEY")
 API_SECRET_KEY = os.getenv("API_SECRET_KEY")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
-CRYPTOPANIC_API_KEY = "fbf4e6c85261e461803afc1c9c51d1112935fea3"  # your real API key
+CRYPTOPANIC_API_KEY = os.getenv("CRYPTOPANIC_API_KEY")
 
-# 🔧 Authenticate Twitter API (OAuth 1.0a)
-auth = tweepy.OAuth1UserHandler(
-    API_KEY,
-    API_SECRET_KEY,
-    ACCESS_TOKEN,
-    ACCESS_TOKEN_SECRET
+# Authenticate using Tweepy v2 Client
+client = tweepy.Client(
+    consumer_key=API_KEY,
+    consumer_secret=API_SECRET_KEY,
+    access_token=ACCESS_TOKEN,
+    access_token_secret=ACCESS_TOKEN_SECRET
 )
-client = tweepy.API(auth)
 
 def get_crypto_news():
     """Fetch latest crypto news from CryptoPanic API"""
     url = f"https://cryptopanic.com/api/v1/posts/?auth_token={CRYPTOPANIC_API_KEY}&kind=news"
     try:
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            posts = data.get("results", [])
-            if not posts:
-                return "No latest crypto news right now."
-            # Choose one random headline
-            post = random.choice(posts)
-            title = post.get("title", "No title available")
+        res = requests.get(url, timeout=10)
+        if res.status_code == 200:
+            data = res.json().get("results", [])
+            if not data:
+                return "No crypto news found."
+            post = random.choice(data)
+            title = post.get("title", "No title")
             link = post.get("url", "")
-            return f"🪙 {title}\n🔗 {link}\n#Crypto #Bitcoin #AI"
+            return f"📰 {title}\n🔗 {link}\n#Crypto #Bitcoin #AI"
         else:
-            return f"⚠️ Error fetching news: {response.status_code}"
+            return f"⚠️ CryptoPanic error: {res.status_code}"
     except Exception as e:
         return f"❌ API error: {e}"
 
 def post_tweet():
-    """Post a crypto tweet"""
+    """Post tweet using Twitter API v2"""
     msg = get_crypto_news()
     try:
-        client.update_status(status=msg)
-        print("✅ Tweet posted successfully:", msg)
-    except tweepy.errors.TooManyRequests:
-        print("⏳ Rate limit reached. Waiting 15 minutes...")
+        client.create_tweet(text=msg)
+        print("✅ Tweet posted:", msg)
+    except tweepy.Forbidden as e:
+        print("⛔ Permission error (403):", e)
+        print("⚠️ Check that your app has Read & Write access, then regenerate all keys/tokens.")
+    except tweepy.TooManyRequests:
+        print("⏳ Rate limit reached, waiting 15 min...")
         time.sleep(900)
-    except tweepy.errors.Forbidden as e:
-        print("⛔ Forbidden error posting tweet:", e)
-        print("⚠️ Check App permissions (Read & Write) and regenerate tokens.")
     except Exception as e:
-        print("❌ Unexpected error posting tweet:", e)
+        print("❌ Error posting tweet:", e)
 
 if __name__ == "__main__":
     print("Bot started:", datetime.now(timezone.utc).isoformat(), "UTC")
