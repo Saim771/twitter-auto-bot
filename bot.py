@@ -75,3 +75,18 @@ if __name__ == "__main__":
     print("Bot started and Flask server running...")
     # Call your tweet posting function
     post_tweet()
+# ---- Keep Alive Section (For Railway + UptimeRobot) ----
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🤖 Twitter bot is alive!"
+
+def run_flask():
+    app.run(host="0.0.0.0", port=8080)
+
+# Run Flask server in background thread
+threading.Thread(target=run_flask).start()
