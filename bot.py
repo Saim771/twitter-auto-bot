@@ -152,7 +152,8 @@ def post_tweet():
 # Main loop with backoff & jitter
 # ---------------------------
 def main_loop():
-    print("Bot started:", datetime.utcnow().isoformat(), "UTC")
+    from datetime import datetime, timezone
+print("Bot started:", datetime.now(timezone.utc).isoformat(), "UTC")
     backoff_hours = 1  # starting backoff on 429
     while True:
         try:
