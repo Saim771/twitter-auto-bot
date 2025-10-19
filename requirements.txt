@@ -1,4 +1,4 @@
-tweepy
-requests
-python-dotenv
-flask
+Flask==2.3.2
+tweepy==4.28.0
+requests==2.31.0
+python-dotenv==1.0.0
