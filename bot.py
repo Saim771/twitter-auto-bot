@@ -1,13 +1,10 @@
 # bot.py
-import os
-import time
-import requests
-import random
-from flask import Flask
-from datetime import datetime, timezone
 import tweepy
+import time
+import random
+import requests
+import os
 from dotenv import load_dotenv
-
 load_dotenv()
 
 # ------------------- API KEYS -------------------
