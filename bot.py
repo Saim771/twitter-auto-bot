@@ -1,92 +1,103 @@
 # bot.py
 import os
-import random
+import time
 import requests
 import tweepy
+import random
+from flask import Flask
 from datetime import datetime, timezone
-import time
 
-# Load environment variables
-API_KEY = os.getenv("API_KEY")
-API_SECRET_KEY = os.getenv("API_SECRET_KEY")
-ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
-CRYPTOPANIC_API_KEY = os.getenv("CRYPTOPANIC_API_KEY")
+# === ENVIRONMENT VARIABLES ===
+API_KEY = os.getenv("TWITTER_API_KEY")
+API_SECRET = os.getenv("TWITTER_API_SECRET")
+ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN")
+ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
 
-# Authenticate using Tweepy v2 Client
-client = tweepy.Client(
-    consumer_key=API_KEY,
-    consumer_secret=API_SECRET_KEY,
-    access_token=ACCESS_TOKEN,
-    access_token_secret=ACCESS_TOKEN_SECRET
-)
+# Your CryptoPanic API key (can be hardcoded or via Railway variable)
+CRYPTOPANIC_API_KEY = os.getenv("CRYPTOPANIC_API_KEY", "fbf4e6c85261e461803afc1c9c51d1112935fea3")
 
+# === TWITTER AUTHENTICATION ===
+auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_SECRET)
+api = tweepy.API(auth)
+
+try:
+    user = api.verify_credentials()
+    print(f"✅ Authenticated as: @{user.screen_name}")
+except Exception as e:
+    print("❌ Twitter Auth Error:", e)
+    exit()
+
+# === FLASK SERVER (for uptime ping) ===
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running smoothly ✅"
+
+# === GLOBAL VARIABLES ===
+last_posted_titles = []
+backoff_minutes = 15
+tweet_interval = 1800  # 30 minutes (safe limit)
+
+# === FETCH LATEST CRYPTONEWS ===
 def get_crypto_news():
-    """Fetch latest crypto news from CryptoPanic API"""
     url = f"https://cryptopanic.com/api/v1/posts/?auth_token={CRYPTOPANIC_API_KEY}&kind=news"
     try:
-        res = requests.get(url, timeout=10)
-        if res.status_code == 200:
-            data = res.json().get("results", [])
-            if not data:
-                return "No crypto news found."
-            post = random.choice(data)
-            title = post.get("title", "No title")
-            link = post.get("url", "")
-            return f"📰 {title}\n🔗 {link}\n#Crypto #Bitcoin #AI"
-        else:
-            return f"⚠️ CryptoPanic error: {res.status_code}"
+        r = requests.get(url)
+        r.raise_for_status()
+        data = r.json()
+        return data.get("results", [])
     except Exception as e:
-        return f"❌ API error: {e}"
+        print("⚠️ Error fetching news:", e)
+        return []
 
+# === POST TWEET ===
 def post_tweet():
-    """Post tweet using Twitter API v2"""
-    msg = get_crypto_news()
-    try:
-        client.create_tweet(text=msg)
-        print("✅ Tweet posted:", msg)
-    except tweepy.Forbidden as e:
-        print("⛔ Permission error (403):", e)
-        print("⚠️ Check that your app has Read & Write access, then regenerate all keys/tokens.")
-    except tweepy.TooManyRequests:
-        print("⏳ Rate limit reached, waiting 15 min...")
-        time.sleep(900)
-    except Exception as e:
-        print("❌ Error posting tweet:", e)
+    global last_posted_titles
 
+    news_list = get_crypto_news()
+    if not news_list:
+        print("⚠️ No news found.")
+        return
+
+    for news in news_list:
+        title = news.get("title")
+        url = news.get("url")
+
+        if not title or title in last_posted_titles:
+            continue
+
+        tweet_text = f"📰 {title}\n\n🔗 Read more: {url}\n#Crypto #Blockchain #Web3"
+        print(f"Attempting to post: {title}")
+
+        try:
+            api.update_status(tweet_text)
+            print(f"✅ Tweet posted: {title}")
+            last_posted_titles.append(title)
+            if len(last_posted_titles) > 20:
+                last_posted_titles = last_posted_titles[-10:]
+            break  # Post one tweet per cycle
+        except tweepy.errors.Forbidden as e:
+            print("⛔ Forbidden error posting tweet:", e)
+            print("⚠️ Check App permissions (Read & Write) and regenerate tokens.")
+            break
+        except tweepy.errors.TooManyRequests:
+            print("⏳ Rate limit reached, waiting 15 min...")
+            time.sleep(15 * 60)
+            break
+        except Exception as e:
+            print("⚠️ Error posting tweet:", e)
+            continue
+
+# === MAIN LOOP ===
 if __name__ == "__main__":
-    print("Bot started:", datetime.now(timezone.utc).isoformat(), "UTC")
-    post_tweet()
-from flask import Flask
-import threading
+    print("Bot started:", datetime.now(timezone.utc).isoformat())
 
-app = Flask(__name__)
+    # Start Flask in a separate thread
+    import threading
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=8080)).start()
 
-@app.route('/')
-def home():
-    return "🤖 Twitter Auto Bot is running!"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=8080)
-
-if __name__ == "__main__":
-    # Start Flask server in a separate thread
-    threading.Thread(target=run_flask).start()
-    print("Bot started and Flask server running...")
-    # Call your tweet posting function
-    post_tweet()
-# ---- Keep Alive Section (For Railway + UptimeRobot) ----
-from flask import Flask
-import threading
-
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "🤖 Twitter bot is alive!"
-
-def run_flask():
-    app.run(host="0.0.0.0", port=8080)
-
-# Run Flask server in background thread
-threading.Thread(target=run_flask).start()
+    while True:
+        post_tweet()
+        print(f"🕒 Sleeping for {tweet_interval/60:.0f} min...\n")
+        time.sleep(tweet_interval)
