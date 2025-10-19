@@ -153,7 +153,7 @@ def post_tweet():
 # ---------------------------
 def main_loop():
     from datetime import datetime, timezone
-print("Bot started:", datetime.now(timezone.utc).isoformat(), "UTC")
+        print("Bot started:", datetime.now(timezone.utc).isoformat(), "UTC")
     backoff_hours = 1  # starting backoff on 429
     while True:
         try:
