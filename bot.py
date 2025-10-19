@@ -101,3 +101,17 @@ if __name__ == "__main__":
         post_tweet()
         print(f"🕒 Sleeping for {tweet_interval/60:.0f} min...\n")
         time.sleep(tweet_interval)
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    app.run(host="0.0.0.0", port=8080)
+
+# Flask server ko alag thread me start kar do
+threading.Thread(target=run_flask).start()
